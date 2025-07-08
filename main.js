@@ -1,9 +1,9 @@
 
 
 // Biblioteca
-const express = require('express');
-const mysql = require('mysql2/promise');
-const bcrypt = require('bcryptjs'); // Criptografa sen
+const express = require('express'); // framework para criar servidores HTTP
+const mysql = require('mysql2/promise'); // conectar com o banco de forma assíncrona
+const bcrypt = require('bcryptjs'); // Criptografa senha
 require('dotenv').config(); // Carrega variáveis de .env
 
 const app = express();

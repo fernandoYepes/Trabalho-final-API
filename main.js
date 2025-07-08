@@ -1,5 +1,3 @@
-
-
 // Biblioteca
 const express = require('express'); // framework para criar servidores HTTP
 const mysql = require('mysql2/promise'); // conectar com o banco de forma assíncrona
@@ -17,7 +15,8 @@ const pool = mysql.createPool({
   database: process.env.DB_NAME,
   waitForConnections: true,
   connectionLimit: 10,
-  queueLimit: 0
+  queueLimit: 0,
+  dateStrings: true
 });
 
 // middleware de aut
@@ -47,7 +46,7 @@ app.post('/filhos', autenticarUsuario, async (req, res) => {
     return res.status(400).json({ message: 'Todos os campos são obrigatórios: nome_completo, cpf, data_nascimento.' });
   }
 
-  // ATENÇÃO: CPF criptografado de forma reversível
+  // ATENÇÃO, CPF criptografado de forma reversível
   const cpfCriptografado = cpf;
 
   let connection;
@@ -84,8 +83,44 @@ app.post('/filhos', autenticarUsuario, async (req, res) => {
 });
 
 /**
+ * @route   GET /filhos
+ * @desc    Listar todos os filhos associados ao pai logado
+ * @access  Privado
+ */
+ app.get('/filhos', autenticarUsuario, async (req, res) => {
+  const paiId = req.paiId;
+
+  try {
+      const [filhos] = await pool.execute(
+          'SELECT f.* FROM Filhos f INNER JOIN Pais_Filhos pf ON f.id = pf.filho_id WHERE pf.pai_id = ?',
+          [paiId]
+      );
+
+      // "Mapeia" cada filho na lista para um novo objeto formatado
+      const filhosFormatados = filhos.map(filho => {
+          // Se a propriedade 'cpf_criptografado' existir e for um Buffer...
+          if (filho.cpf_criptografado && Buffer.isBuffer(filho.cpf_criptografado)) {
+              // ...retorna uma cópia do filho, mas com o CPF convertido para texto.
+              return {
+                  ...filho, // Copia todas as outras propriedades (id, nome_completo, etc.)
+                  cpf_criptografado: filho.cpf_criptografado.toString('utf-8') // Converte o buffer para texto
+              };
+          }
+          // Se não for um buffer, apenas retorna o filho como ele veio do banco.
+          return filho;
+      });
+
+      res.status(200).json(filhosFormatados); // Envia a lista com os CPFs já formatados
+
+  } catch (error) {
+      console.error('Erro ao listar filhos:', error);
+      res.status(500).json({ message: 'Erro interno no servidor.' });
+  }
+});
+
+/**
  * @route   DELETE /filhos/:id
- * @desc    Deleta egistro de um filho
+ * @desc    Deleta registro de um filho
  * @access  Privado
  */
 app.delete('/filhos/:id', autenticarUsuario, async (req, res) => {
